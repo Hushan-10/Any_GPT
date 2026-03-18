@@ -68,7 +68,7 @@ async def:pub getSession(sessionId: str) -> any {
 }
 
 
-"""Send a message and get a response (SSE streaming)."""
+"""Send a message and get the response, simulating streaming word-by-word."""
 async def:pub sendMessage(message: str, sessionId: str, onChunk: any = None, onEvent: any = None, abortSignal: any = None) -> any {
     try {
         response = await fetch(
@@ -84,56 +84,40 @@ async def:pub sendMessage(message: str, sessionId: str, onChunk: any = None, onE
             }
         );
 
-        if not response.body {
-            raise Exception("No response body");
+        if not response.ok {
+            raise Exception("Server returned " + String(response.status));
         }
 
-        reader = response.body.getReader();
-        decoder = Reflect.construct(TextDecoder, ["utf-8"]);
-        buffer = "";
+        json = await response.json();
+        result = {};
+        if json.ok and json.data and json.data.reports and json.data.reports.length > 0 {
+            result = json.data.reports[json.data.reports.length - 1];
+        }
 
-        while True {
-            read_result = await reader.read();
-            value = read_result.value;
-            done = read_result.done;
-
-            if done {
-                break;
-            }
-
-            buffer += decoder.decode(value, {"stream": True});
-
-            doubleNewline = String.fromCharCode(10) + String.fromCharCode(10);
-            events = buffer.split(doubleNewline);
-            buffer = events.pop() or "";
-
-            for event in events {
-                if not event.startsWith("data:") {
-                    continue;
-                }
-
-                data = event.replace("data:", "").trim();
-
-                try {
-                    parsed = JSON.parse(data);
-
-                    if parsed.type == "chunk" and onChunk {
-                        content = "";
-                        if parsed.data {
-                            content = parsed.data.content or "";
-                        } elif parsed.content {
-                            content = parsed.content;
+        fullResponse = result.response or "";
+        if onChunk and fullResponse {
+            words = fullResponse.split(" ");
+            await Reflect.construct(Promise, [lambda resolve: any -> None {
+                idx = 0;
+                def feedNext() -> None {
+                    if idx < words.length {
+                        chunk = words[idx];
+                        if idx < words.length - 1 {
+                            chunk = chunk + " ";
                         }
-                        onChunk(content);
+                        onChunk(chunk);
+                        idx = idx + 1;
+                        setTimeout(feedNext, 18);
+                    } else {
+                        resolve(None);
                     }
-
-                    if onEvent {
-                        onEvent(parsed);
-                    }
-                } except Exception as parseError {
-                    console.error("JSON parse error:", parseError);
                 }
-            }
+                feedNext();
+            }]);
+        }
+
+        if onEvent {
+            onEvent({"type": "done", "data": result});
         }
 
         return {"success": True};

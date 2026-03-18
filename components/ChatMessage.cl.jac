@@ -1,4 +1,4 @@
-"""Chat message component with markdown rendering."""
+"""Chat message component — user bubbles in orange, AI in light gray, with markdown."""
 
 import from react { useState }
 import from "react-markdown" { default as ReactMarkdown }
@@ -13,26 +13,19 @@ import from "@mantine/core" {
 }
 import from "@tabler/icons-react" {
     IconCopy,
-    IconCheck
+    IconCheck,
+    IconUser,
+    IconSparkles
 }
 
-"""Code block with copy button."""
+"""Code block with syntax label and copy button."""
 def:pub CodeBlock(language: str, code: str) -> JsxElement {
     has copied: bool = false;
 
     def handleCopy() -> None {
         navigator.clipboard.writeText(code);
         copied = true;
-        setTimeout(lambda { copied = false; }, 2000);
-    }
-
-    copyLabel = "Copy code";
-    copyColor = "gray";
-    copyIcon = <IconCopy size={14} />;
-    if copied {
-        copyLabel = "Copied!";
-        copyColor = "green";
-        copyIcon = <IconCheck size={14} />;
+        setTimeout(lambda -> None { copied = false; }, 2000);
     }
 
     displayLang = language;
@@ -40,33 +33,40 @@ def:pub CodeBlock(language: str, code: str) -> JsxElement {
         displayLang = "code";
     }
 
+    copyIcon = <IconCopy size={14} />;
+    copyLabel = "Copy code";
+    if copied {
+        copyIcon = <IconCheck size={14} />;
+        copyLabel = "Copied!";
+    }
+
     return <Box my="sm">
         <Paper
             radius="md"
             style={{
                 "background": "#1e1e2e",
-                "border": "1px solid #e5e7eb",
+                "border": "1px solid #F0F0F0",
                 "overflow": "hidden"
             }}
         >
             <Group
                 justify="space-between"
                 px="md"
-                py="xs"
+                py={6}
                 style={{
-                    "borderBottom": "1px solid rgba(255,255,255,0.08)",
-                    "background": "#2d2d3f"
+                    "borderBottom": "1px solid rgba(255,255,255,0.06)",
+                    "background": "#272736"
                 }}
             >
-                <Text size="xs" c="gray.5" ff="monospace">
+                <Text size="xs" c="gray.5" ff="monospace" style={{"fontSize": "11px"}}>
                     {displayLang}
                 </Text>
                 <Tooltip label={copyLabel} position="left">
                     <ActionIcon
                         onClick={handleCopy}
                         variant="subtle"
-                        color={copyColor}
-                        size="sm"
+                        color={("green" if copied else "gray")}
+                        size="xs"
                     >
                         {copyIcon}
                     </ActionIcon>
@@ -75,9 +75,8 @@ def:pub CodeBlock(language: str, code: str) -> JsxElement {
             <Box px="md" py="sm" style={{"overflowX": "auto"}}>
                 <pre style={{
                     "margin": "0",
-                    "padding": "0",
                     "fontSize": "13px",
-                    "lineHeight": "1.6",
+                    "lineHeight": "1.65",
                     "fontFamily": "JetBrains Mono, Consolas, Monaco, monospace",
                     "whiteSpace": "pre-wrap",
                     "wordBreak": "break-word",
@@ -90,27 +89,44 @@ def:pub CodeBlock(language: str, code: str) -> JsxElement {
     </Box>;
 }
 
-"""Chat message component."""
+"""Single chat message — user (right, orange) or AI (left, gray)."""
 def:pub ChatMessage(message: str, isUser: bool, timestamp: any = null) -> JsxElement {
 
-    ORANGE = "#f97316";
-    TEXT = "#111827";
-    TEXT_SECONDARY = "#374151";
+    TEXT = "#1A1A1A";
+    TEXT_BODY = "#374151";
+    ORANGE = "#FF6B35";
 
     if isUser {
-        return <Box py="4px" px="xs" style={{"animation": "fadeIn 0.3s ease"}}>
-            <Group justify="flex-end">
-                <div style={{
-                    "padding": "12px 16px",
-                    "maxWidth": "80%",
-                    "background": "#f3f4f6",
-                    "border": "none",
-                    "borderRadius": "20px"
+        return <Box py="6px" style={{"animation": "fadeIn 0.25s ease"}}>
+            <Group justify="flex-end" align="flex-start" gap={10} wrap="nowrap">
+                <Box style={{
+                    "padding": "12px 18px",
+                    "maxWidth": "75%",
+                    "background": "linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)",
+                    "borderRadius": "18px 18px 4px 18px",
+                    "boxShadow": "0 1px 4px rgba(255,107,53,0.15)"
                 }}>
-                    <Text size="sm" c={TEXT} style={{"whiteSpace": "pre-wrap", "lineHeight": "1.6"}}>
+                    <Text size="sm" style={{
+                        "whiteSpace": "pre-wrap",
+                        "lineHeight": "1.6",
+                        "color": "#ffffff"
+                    }}>
                         {message}
                     </Text>
-                </div>
+                </Box>
+                <Box style={{
+                    "width": "30px",
+                    "height": "30px",
+                    "borderRadius": "50%",
+                    "background": "linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)",
+                    "display": "flex",
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "flexShrink": "0",
+                    "marginTop": "2px"
+                }}>
+                    <IconUser size={14} color="#ffffff" />
+                </Box>
             </Group>
         </Box>;
     }
@@ -139,32 +155,32 @@ def:pub ChatMessage(message: str, isUser: bool, timestamp: any = null) -> JsxEle
             }
 
             return <Code style={{
-                "background": "rgba(249,115,22,0.08)",
+                "background": "rgba(255,107,53,0.08)",
                 "color": "#c2410c",
                 "padding": "2px 6px",
                 "borderRadius": "4px",
                 "fontSize": "13px",
-                "border": "1px solid rgba(249,115,22,0.15)"
+                "border": "1px solid rgba(255,107,53,0.12)"
             }}>
                 {children}
             </Code>;
         },
 
         "p": lambda p: any -> any {
-            return <Text size="sm" c={TEXT_SECONDARY} my="xs" style={{"lineHeight": "1.7"}}>
+            return <Text size="sm" c={TEXT_BODY} my="xs" style={{"lineHeight": "1.7"}}>
                 {p.children}
             </Text>;
         },
 
         "h1": lambda p: any -> any {
             return <Text size="lg" fw={700} c={TEXT} mt="md" mb="xs"
-                style={{"borderBottom": "1px solid #e5e7eb", "paddingBottom": "8px"}}>
+                style={{"borderBottom": "1px solid #F0F0F0", "paddingBottom": "8px", "letterSpacing": "-0.3px"}}>
                 {p.children}
             </Text>;
         },
 
         "h2": lambda p: any -> any {
-            return <Text size="md" fw={700} c={TEXT} mt="sm" mb="xs">
+            return <Text size="md" fw={700} c={TEXT} mt="sm" mb="xs" style={{"letterSpacing": "-0.2px"}}>
                 {p.children}
             </Text>;
         },
@@ -188,7 +204,7 @@ def:pub ChatMessage(message: str, isUser: bool, timestamp: any = null) -> JsxEle
         },
 
         "li": lambda p: any -> any {
-            return <Text component="li" size="sm" c={TEXT_SECONDARY}
+            return <Text component="li" size="sm" c={TEXT_BODY}
                 style={{"lineHeight": "1.7", "marginBottom": "4px"}}>
                 {p.children}
             </Text>;
@@ -208,22 +224,54 @@ def:pub ChatMessage(message: str, isUser: bool, timestamp: any = null) -> JsxEle
                 rel="noopener noreferrer"
                 td="none"
                 span
-                style={{"cursor": "pointer", "color": ORANGE}}
+                style={{"cursor": "pointer", "color": ORANGE, "fontWeight": "500"}}
             >
                 {p.children}
             </Text>;
         },
 
         "hr": lambda p: any -> any {
-            return <Box my="md" style={{"borderTop": "1px solid #e5e7eb"}} />;
+            return <Box my="md" style={{"borderTop": "1px solid #F0F0F0"}} />;
+        },
+
+        "blockquote": lambda p: any -> any {
+            return <Box my="sm" pl="md" style={{
+                "borderLeft": "3px solid #FF6B35",
+                "background": "#FFF5F0",
+                "padding": "10px 14px",
+                "borderRadius": "0 8px 8px 0"
+            }}>
+                {p.children}
+            </Box>;
         }
     };
 
-    return <Box py="sm" px="xs" style={{"animation": "fadeIn 0.3s ease"}}>
-        <Box style={{"flex": "1", "minWidth": "0"}}>
-            <ReactMarkdown components={components}>
-                {message}
-            </ReactMarkdown>
-        </Box>
+    return <Box py="6px" style={{"animation": "fadeIn 0.25s ease"}}>
+        <Group align="flex-start" gap={10} wrap="nowrap">
+            <Box style={{
+                "width": "30px",
+                "height": "30px",
+                "borderRadius": "50%",
+                "background": "linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)",
+                "display": "flex",
+                "alignItems": "center",
+                "justifyContent": "center",
+                "flexShrink": "0",
+                "marginTop": "2px"
+            }}>
+                <IconSparkles size={14} color="#ffffff" />
+            </Box>
+            <Box style={{
+                "flex": "1",
+                "minWidth": "0",
+                "background": "#F5F5F5",
+                "borderRadius": "4px 18px 18px 18px",
+                "padding": "14px 18px"
+            }}>
+                <ReactMarkdown components={components}>
+                    {message}
+                </ReactMarkdown>
+            </Box>
+        </Group>
     </Box>;
 }

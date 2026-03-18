@@ -4,13 +4,15 @@ import json;
 import from datetime {datetime}
 
 
-# Shared helper function for streaming responses with SSE format
-def stream_chat_response(response_generator: any, visitor: any) -> any {
+# Collect full response from the LLM generator (jac start dev server does not support SSE)
+def collect_chat_response(response_generator: any, visitor: any) -> dict {
     response = "";
+    sources: list = [];
     for event in response_generator {
-        yield f"data: {json.dumps({'type': event.event_type, 'data': event.data})}\n\n";
         if event.event_type == "chunk" {
             response += event.data.get("content", "");
+        } elif event.event_type == "source" {
+            sources.append(event.data);
         }
     }
 
@@ -18,7 +20,11 @@ def stream_chat_response(response_generator: any, visitor: any) -> any {
     session_node.chat_history.append({"role": "assistant", "content": response});
     session_node.updated_at = datetime.now().isoformat();
 
-    return;
+    return {
+        "response": response,
+        "sources": sources,
+        "session_id": visitor.session_id
+    };
 }
 
 
@@ -51,10 +57,11 @@ OUTPUT FORMAT:
 
 impl ChatNode.chat {
     print("Entering ChatNode - generating response");
-    report stream_chat_response(
+    result = collect_chat_response(
         self.respond(message=visitor.message, chat_history=visitor.chat_history),
         visitor
     );
+    report result;
 }
 
 
