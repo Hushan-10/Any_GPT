@@ -1,0 +1,40 @@
+{
+    "mode": "single_tenant",
+
+    "storage": {
+        "backend": "local",
+        "data_root": "./anygpt-data",
+        "max_file_size_mb": 50,
+        "allowed_extensions": [".pdf", ".md", ".txt", ".docx", ".py", ".js", ".ts", ".jac"]
+    },
+
+    "vector_store": {
+        "backend": "faiss",
+        "embedding_model": "text-embedding-3-small",
+        "embedding_dimensions": 1536
+    },
+
+    "chunking": {
+        "strategy": "recursive",
+        "chunk_size": 800,
+        "chunk_overlap": 100
+    },
+
+    "retrieval": {
+        "initial_k": 30,
+        "reranker_model": "cross-encoder/ms-marco-MiniLM-L6-v2",
+        "top_n": 7
+    },
+
+    "llm": {
+        "model": "gpt-4.1-mini",
+        "method": "ReAct",
+        "max_react_iterations": 5,
+        "temperature": 0.1
+    },
+
+    "server": {
+        "host": "0.0.0.0",
+        "port": 8000
+    }
+}
