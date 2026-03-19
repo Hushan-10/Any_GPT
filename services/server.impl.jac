@@ -68,6 +68,11 @@ impl ChatNode.chat {
 impl Session.chat {
     print("=== New chat message received in session:", self.id);
 
+    # Track user email on the session
+    if visitor.user_email and not self.user_email {
+        self.user_email = visitor.user_email;
+    }
+
     # Save user message to chat history
     self.chat_history.append({"role": "user", "content": visitor.message});
     self.updated_at = datetime.now().isoformat();
@@ -84,7 +89,7 @@ impl Session.chat {
 impl get_session.get_chat_history {
     all_sessions = [-->(?:Session)];
     for session in all_sessions {
-        if session.id == self.session_id {
+        if session.id == self.session_id and (not self.user_email or session.user_email == self.user_email) {
             visit session;
             return;
         }
@@ -113,6 +118,7 @@ impl new_session.create_session {
 
     session_node = here ++> Session(
         id=self.session_id,
+        user_email=self.user_email,
         chat_history=[],
         created_at=now,
         updated_at=now

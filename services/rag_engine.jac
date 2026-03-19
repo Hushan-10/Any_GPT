@@ -23,7 +23,7 @@ import from sentence_transformers {CrossEncoder}
 # Import from ingestion module
 import from services.ingestion.loaders {load_document, load_all_from_directory}
 import from services.ingestion.chunker {chunk_documents}
-import from services.ingestion.file_store {validate_file, list_files}
+import from services.ingestion.file_store {validate_file, list_files, save_file, delete_file}
 
 # Import from retrieval module
 import from services.retrieval.vector_store {
@@ -57,18 +57,30 @@ def load_config() -> dict {
     }
 }
 
-"""Get or create the tenant data directory."""
-def get_tenant_dir(config: dict, tenant_id: str = "default") -> str {
+"""Get or create the tenant data directory, optionally scoped to a user."""
+def get_tenant_dir(config: dict, tenant_id: str = "default", user_id: str = "") -> str {
     data_root = config.get("storage", {}).get("data_root", "./anygpt-data");
-    tenant_dir = os.path.join(data_root, "tenants", tenant_id);
+    if user_id {
+        tenant_dir = os.path.join(data_root, "tenants", tenant_id, "users", user_id);
+    } else {
+        tenant_dir = os.path.join(data_root, "tenants", tenant_id);
+    }
     os.makedirs(os.path.join(tenant_dir, "uploads"), exist_ok=True);
     os.makedirs(os.path.join(tenant_dir, "faiss_index"), exist_ok=True);
     return tenant_dir;
 }
 
+
+"""Sanitize a user email/username into a safe directory name."""
+def sanitize_user_id(user_email: str) -> str {
+    return user_email.replace("@", "_at_").replace(".", "_").replace(" ", "_").lower();
+}
+
 obj RagEngine {
     has config: dict;
     has tenant_id: str = "default";
+    has user_id: str = "";
+    has shared_cross_encoder: CrossEncoder = None;
     has tenant_dir: str = "";
     has uploads_dir: str = "";
     has faiss_path: str = "";
@@ -82,8 +94,8 @@ obj RagEngine {
     has use_reranking: bool = True;
 
     def postinit {
-        # Set up paths
-        self.tenant_dir = get_tenant_dir(self.config, self.tenant_id);
+        # Set up paths — scoped to user if user_id is provided
+        self.tenant_dir = get_tenant_dir(self.config, self.tenant_id, self.user_id);
         self.uploads_dir = os.path.join(self.tenant_dir, "uploads");
         self.faiss_path = os.path.join(self.tenant_dir, "faiss_index");
 
@@ -97,8 +109,12 @@ obj RagEngine {
         self.top_n = retrieval_config.get("top_n", 7);
         self.cross_encoder_model = retrieval_config.get("reranker_model", "cross-encoder/ms-marco-MiniLM-L6-v2");
 
-        # Initialize CrossEncoder reranker via retrieval module
-        self.cross_encoder = init_reranker(self.cross_encoder_model);
+        # Reuse shared CrossEncoder if provided (avoids reloading ~80MB model per user)
+        if self.shared_cross_encoder is not None {
+            self.cross_encoder = self.shared_cross_encoder;
+        } else {
+            self.cross_encoder = init_reranker(self.cross_encoder_model);
+        }
         if self.cross_encoder is None {
             self.use_reranking = False;
         }
@@ -120,7 +136,8 @@ obj RagEngine {
             }
         }
 
-        print(f"RAG Engine initialized for tenant: {self.tenant_id}");
+        user_label = f" (user: {self.user_id})" if self.user_id else "";
+        print(f"RAG Engine initialized for tenant: {self.tenant_id}{user_label}");
     }
 
     """Ingest a single file: load, chunk, embed, add to index."""
