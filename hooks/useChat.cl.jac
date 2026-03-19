@@ -1,6 +1,7 @@
 """Chat hook for managing chat state, sessions, and document uploads."""
 
 import from react { useState, useEffect, useRef }
+import from "@jac/runtime" { jacIsLoggedIn }
 import from ..services.anygptService {
     createSession,
     getSession,
@@ -8,8 +9,10 @@ import from ..services.anygptService {
     generateSessionId,
     uploadDocument,
     listDocuments,
-    deleteDocument
+    deleteDocument,
+    getUserSessions
 }
+import from ..hooks.useAuth { getUsernameFromToken }
 
 
 """Hook for managing chat state, sessions, and documents."""
@@ -27,22 +30,30 @@ def:pub useChat() -> any {
     latestUserMsgRef = useRef(None);
     abortControllerRef = useRef(None);
 
-    # On mount: restore sessions from localStorage, init session, load documents
+    # On mount: load sessions from server, init session, load documents
     useEffect(lambda -> None {
-        savedSessions = localStorage.getItem("anygpt_sessions");
-        if savedSessions {
-            try {
-                parsed = JSON.parse(savedSessions);
-                chatSessions = lambda prev: any -> any { return parsed; };
-            } except Exception as e {
+        async def loadUserData() -> None {
+            currentUser = getUsernameFromToken();
+            # Load sessions from server (persisted across logins)
+            serverResult = await getUserSessions(currentUser);
+            if serverResult.success and serverResult.sessions.length > 0 {
+                serverSessions = [];
+                for s in serverResult.sessions {
+                    serverSessions.push({
+                        "id": s.id,
+                        "title": s.title or "New Chat",
+                        "createdAt": s.created_at or String(Date.now())
+                    });
+                }
+                chatSessions = lambda prev: any -> any { return serverSessions; };
+                localStorage.setItem("anygpt_sessions", JSON.stringify(serverSessions));
+            } else {
                 chatSessions = lambda prev: any -> any { return []; };
             }
-        } else {
-            chatSessions = lambda prev: any -> any { return []; };
+            await initSession();
+            setTimeout(lambda -> None { handleRefreshDocuments(); }, 500);
         }
-        initSession();
-        # Small delay before first document fetch to let server initialize
-        setTimeout(lambda -> None { handleRefreshDocuments(); }, 500);
+        loadUserData();
     }, []);
 
     # Scroll latest user message to top when new messages are added
@@ -60,7 +71,8 @@ def:pub useChat() -> any {
 
     async def initSession() -> None {
         newSessionId = generateSessionId();
-        result = await createSession(newSessionId);
+        currentUser = getUsernameFromToken();
+        result = await createSession(newSessionId, currentUser);
         if result.success {
             sessionId = result.session_id;
         } else {
@@ -90,6 +102,9 @@ def:pub useChat() -> any {
 
         try {
             abortControllerRef.current = Reflect.construct(AbortController, []);
+
+            # Get user email for session tracking
+            userEmail = getUsernameFromToken();
 
             # Create empty bot message for SSE streaming
             botMessageId = "msg_" + String(Date.now()) + "_bot";
@@ -132,7 +147,7 @@ def:pub useChat() -> any {
                 0;
             }
 
-            result = await sendMessage(content.trim(), sessionId, onChunk, onEvent, abortControllerRef.current.signal);
+            result = await sendMessage(content.trim(), sessionId, userEmail, onChunk, onEvent, abortControllerRef.current.signal);
 
             if not result.success {
                 if result.aborted {
@@ -199,7 +214,8 @@ def:pub useChat() -> any {
     async def handleLoadSession(loadSessionId: str) -> None {
         isLoading = True;
         try {
-            result = await getSession(loadSessionId);
+            currentUser = getUsernameFromToken();
+            result = await getSession(loadSessionId, currentUser);
             if result.success and result.found {
                 sessionId = loadSessionId;
                 newMessages = [];
@@ -247,7 +263,8 @@ def:pub useChat() -> any {
     async def handleUploadDocument(file: any) -> any {
         isUploading = True;
         try {
-            result = await uploadDocument(file);
+            currentUser = getUsernameFromToken();
+            result = await uploadDocument(file, currentUser);
             if result.success {
                 # Wait briefly for server to finish indexing before refresh
                 await Reflect.construct(Promise, [lambda resolve: any -> None {
@@ -266,7 +283,8 @@ def:pub useChat() -> any {
 
     async def handleRefreshDocuments() -> None {
         try {
-            result = await listDocuments();
+            currentUser = getUsernameFromToken();
+            result = await listDocuments(currentUser);
             if result.success {
                 newDocs = result.documents or [];
                 documents = lambda prev: any -> any { return newDocs; };
@@ -278,7 +296,8 @@ def:pub useChat() -> any {
 
     async def handleDeleteDocument(filename: str) -> None {
         try {
-            result = await deleteDocument(filename);
+            currentUser = getUsernameFromToken();
+            result = await deleteDocument(filename, currentUser);
             if result.success {
                 # Optimistically remove from UI immediately
                 documents = lambda prev: any -> any {
