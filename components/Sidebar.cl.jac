@@ -20,7 +20,9 @@ import from "@tabler/icons-react" {
     IconTrash,
     IconMessage,
     IconFiles,
-    IconSparkles
+    IconSparkles,
+    IconLogout,
+    IconUser
 }
 
 
@@ -34,7 +36,9 @@ def:pub Sidebar(
     onLoadSession: any = None,
     onDeleteSession: any = None,
     isLoading: bool = False,
-    documentCount: int = 0
+    documentCount: int = 0,
+    username: str = "User",
+    onLogout: any = None
 ) -> any {
     isDesktop = useMediaQuery("(min-width: 1024px)");
     shouldShow = isDesktop or isOpen;
@@ -369,20 +373,60 @@ def:pub Sidebar(
 
     statusBar = None;
     if isExpanded {
-        statusBar = <Box px="md" py="sm">
-            <Group gap="xs" style={{
+        statusBar = <Box px="md" py="sm" style={{"borderTop": "1px solid " + BORDER}}>
+            <Group gap="xs" justify="space-between" style={{
                 "padding": "8px 12px",
-                "borderRadius": "8px"
+                "borderRadius": "8px",
+                "background": HOVER_BG
             }}>
-                <Box style={{
-                    "width": "7px",
-                    "height": "7px",
-                    "borderRadius": "50%",
-                    "background": "#22c55e",
-                    "boxShadow": "0 0 6px rgba(34,197,94,0.4)"
-                }} />
-                <Text size="xs" c={MUTED} fw={500}>Ready</Text>
+                <Group gap="xs">
+                    <Box style={{
+                        "width": "28px",
+                        "height": "28px",
+                        "borderRadius": "50%",
+                        "background": "linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)",
+                        "display": "flex",
+                        "alignItems": "center",
+                        "justifyContent": "center",
+                        "flexShrink": "0"
+                    }}>
+                        <IconUser size={14} color="#ffffff" />
+                    </Box>
+                    <Text size="xs" c={TEXT} fw={500} style={{
+                        "maxWidth": "120px",
+                        "overflow": "hidden",
+                        "textOverflow": "ellipsis",
+                        "whiteSpace": "nowrap"
+                    }}>
+                        {username}
+                    </Text>
+                </Group>
+                <Tooltip label="Sign out" position="top">
+                    <ActionIcon
+                        onClick={onLogout}
+                        variant="subtle"
+                        size="sm"
+                        radius="md"
+                        style={{"color": MUTED}}
+                    >
+                        <IconLogout size={16} />
+                    </ActionIcon>
+                </Tooltip>
             </Group>
+        </Box>;
+    } else {
+        statusBar = <Box py="sm" style={{"display": "flex", "justifyContent": "center", "borderTop": "1px solid " + BORDER}}>
+            <Tooltip label={"Sign out (" + username + ")"} position="right">
+                <ActionIcon
+                    onClick={onLogout}
+                    variant="subtle"
+                    size="lg"
+                    radius="md"
+                    style={{"color": MUTED}}
+                >
+                    <IconLogout size={20} />
+                </ActionIcon>
+            </Tooltip>
         </Box>;
     }
 
