@@ -2,6 +2,7 @@
 
 import from react { useEffect }
 import from "@mantine/core" { ScrollArea }
+import from "@jac/runtime" { useNavigate, jacLogout }
 import from "@tabler/icons-react" {
     IconFiles,
     IconX,
@@ -12,6 +13,7 @@ import from "@tabler/icons-react" {
     IconListDetails
 }
 import from ..hooks.useChat { useChat }
+import from ..hooks.useAuth { getUsernameFromToken }
 import from ..components.ChatMessage { ChatMessage }
 import from ..components.ChatInput { ChatInput }
 import from ..components.Sidebar { Sidebar }
@@ -35,6 +37,13 @@ def:pub ChatPage() -> any {
     HOVER_BG = "#FFF5F0";
 
     chat = useChat();
+    navigate = useNavigate();
+    username = getUsernameFromToken();
+
+    def handleLogout() -> None {
+        jacLogout();
+        navigate("/login");
+    }
 
     useEffect(lambda -> None {
         styleId = "chat-animations";
@@ -403,6 +412,8 @@ def:pub ChatPage() -> any {
             onDeleteSession={chat.handleDeleteSession}
             isLoading={chat.isLoading}
             documentCount={chat.documents.length}
+            username={username}
+            onLogout={handleLogout}
         />
 
         <div style={{"flex": "1", "display": "flex", "overflow": "hidden"}}>
