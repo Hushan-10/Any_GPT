@@ -2,6 +2,7 @@
 
 import from "@jac/runtime" { Router, Routes, Route }
 import from "@mantine/core" { MantineProvider, createTheme }
+import from .components.CursorTrail { CursorTrail }
 import from .pages.ChatPage { ChatPage }
 import from .pages.LoginPage { LoginPage }
 import from .pages.RegisterPage { RegisterPage }
@@ -37,6 +38,7 @@ def:pub app() -> any {
     });
 
     return <MantineProvider theme={theme} defaultColorScheme="light">
+        <CursorTrail />
         <Router>
             <Routes>
                 <Route path="/" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
