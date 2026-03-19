@@ -1,6 +1,17 @@
 """Service layer for communicating with the AnyGPT backend via fetch API."""
 
 
+"""Get the auth token from localStorage."""
+def getAuthHeaders() -> any {
+    token = localStorage.getItem("jac_token");
+    headers = {"Content-Type": "application/json"};
+    if token {
+        headers["Authorization"] = "Bearer " + token;
+    }
+    return headers;
+}
+
+
 """Call a walker endpoint via fetch and extract the last report."""
 async def callWalker(walkerName: str, payload: any = None) -> any {
     body = payload or {};
@@ -8,7 +19,7 @@ async def callWalker(walkerName: str, payload: any = None) -> any {
         "/walker/" + walkerName,
         {
             "method": "POST",
-            "headers": {"Content-Type": "application/json"},
+            "headers": getAuthHeaders(),
             "body": JSON.stringify(body)
         }
     );
@@ -32,12 +43,12 @@ def:pub generateSessionId() -> str {
 
 
 """Create a new chat session on the backend."""
-async def:pub createSession(sessionId: str = "") -> any {
+async def:pub createSession(sessionId: str = "", userEmail: str = "") -> any {
     if not sessionId {
         sessionId = generateSessionId();
     }
     try {
-        result = await callWalker("new_session", {"session_id": sessionId});
+        result = await callWalker("new_session", {"session_id": sessionId, "user_email": userEmail});
         return {
             "success": True,
             "session_id": result.session_id or sessionId,
@@ -52,9 +63,9 @@ async def:pub createSession(sessionId: str = "") -> any {
 
 
 """Get an existing session's chat history."""
-async def:pub getSession(sessionId: str) -> any {
+async def:pub getSession(sessionId: str, userEmail: str = "") -> any {
     try {
-        result = await callWalker("get_session", {"session_id": sessionId});
+        result = await callWalker("get_session", {"session_id": sessionId, "user_email": userEmail});
         return {
             "success": True,
             "session_id": result.session_id or sessionId,
@@ -69,16 +80,17 @@ async def:pub getSession(sessionId: str) -> any {
 
 
 """Send a message and get the response, simulating streaming word-by-word."""
-async def:pub sendMessage(message: str, sessionId: str, onChunk: any = None, onEvent: any = None, abortSignal: any = None) -> any {
+async def:pub sendMessage(message: str, sessionId: str, userEmail: str = "", onChunk: any = None, onEvent: any = None, abortSignal: any = None) -> any {
     try {
         response = await fetch(
             "/walker/interact",
             {
                 "method": "POST",
-                "headers": {"Content-Type": "application/json"},
+                "headers": getAuthHeaders(),
                 "body": JSON.stringify({
                     "message": message,
-                    "session_id": sessionId
+                    "session_id": sessionId,
+                    "user_email": userEmail
                 }),
                 "signal": abortSignal
             }
@@ -132,8 +144,8 @@ async def:pub sendMessage(message: str, sessionId: str, onChunk: any = None, onE
 }
 
 
-"""Upload a document to the backend (base64 encoded)."""
-async def:pub uploadDocument(file: any) -> any {
+"""Upload a document to the backend (base64 encoded), scoped to the user."""
+async def:pub uploadDocument(file: any, userEmail: str = "") -> any {
     try {
         arrayBuffer = await file.arrayBuffer();
         uint8 = Reflect.construct(Uint8Array, [arrayBuffer]);
@@ -151,7 +163,8 @@ async def:pub uploadDocument(file: any) -> any {
 
         result = await callWalker("upload_document", {
             "filename": file.name,
-            "file_content": base64Content
+            "file_content": base64Content,
+            "user_email": userEmail
         });
 
         return {
@@ -167,10 +180,10 @@ async def:pub uploadDocument(file: any) -> any {
 }
 
 
-"""List all uploaded documents."""
-async def:pub listDocuments() -> any {
+"""List all uploaded documents for the authenticated user."""
+async def:pub listDocuments(userEmail: str = "") -> any {
     try {
-        result = await callWalker("list_documents", {});
+        result = await callWalker("list_documents", {"user_email": userEmail});
         return {
             "success": result.success or False,
             "documents": result.documents or [],
@@ -184,10 +197,10 @@ async def:pub listDocuments() -> any {
 }
 
 
-"""Delete a document by filename."""
-async def:pub deleteDocument(filename: str) -> any {
+"""Delete a document by filename, scoped to the user."""
+async def:pub deleteDocument(filename: str, userEmail: str = "") -> any {
     try {
-        result = await callWalker("delete_document", {"filename": filename});
+        result = await callWalker("delete_document", {"filename": filename, "user_email": userEmail});
         return {
             "success": result.success or False,
             "error": result.error or ""
@@ -195,5 +208,20 @@ async def:pub deleteDocument(filename: str) -> any {
     } except Exception as e {
         console.error("deleteDocument error:", e);
         return {"success": False, "error": String(e)};
+    }
+}
+
+
+"""Get all sessions for the authenticated user from the server."""
+async def:pub getUserSessions(userEmail: str = "") -> any {
+    try {
+        result = await callWalker("get_user_sessions", {"user_email": userEmail});
+        return {
+            "success": result.success or False,
+            "sessions": result.sessions or []
+        };
+    } except Exception as e {
+        console.error("getUserSessions error:", e);
+        return {"success": False, "sessions": []};
     }
 }
