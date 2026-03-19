@@ -3,6 +3,9 @@
 import from "@jac/runtime" { Router, Routes, Route }
 import from "@mantine/core" { MantineProvider, createTheme }
 import from .pages.ChatPage { ChatPage }
+import from .pages.LoginPage { LoginPage }
+import from .pages.RegisterPage { RegisterPage }
+import from .utils.ProtectedRoute { ProtectedRoute }
 
 import "@mantine/core/styles.css";
 
@@ -36,7 +39,9 @@ def:pub app() -> any {
     return <MantineProvider theme={theme} defaultColorScheme="light">
         <Router>
             <Routes>
-                <Route path="/" element={<ChatPage />} />
+                <Route path="/" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
             </Routes>
         </Router>
     </MantineProvider>;
