@@ -11,7 +11,8 @@ import from services.server {
     list_documents,
     delete_document,
     reindex,
-    index_status
+    index_status,
+    get_user_sessions
 }
 
 
